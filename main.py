@@ -3,16 +3,19 @@ import string
 import pickle
 import hashlib
 from collections import defaultdict
-import nltk
-nltk.download('stopwords')
-nltk.download('punkt')
-from nltk.stem.snowball import SnowballStemmer
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 import threading
 import time
-stemmer = SnowballStemmer("english")
-stop_words = set(stopwords.words('english'))
+
+use_nltk = False
+if use_nltk:
+    import nltk
+    nltk.download('stopwords')
+    nltk.download('punkt')
+    from nltk.stem.snowball import SnowballStemmer
+    from nltk.corpus import stopwords
+    from nltk.tokenize import word_tokenize
+    stemmer = SnowballStemmer("english")
+    stop_words = set(stopwords.words('english'))
 
 recipes_dir = './recipes'
 saved_dict_location = './index/reversed_index.pkl'
@@ -55,9 +58,12 @@ method_w = 10
 # convert to lower case, remove punctuation, split, filter out stop words, stem the list of words
 # then remove duplicates
 def get_keywords(ws: str) -> [str]:
-    ws1 = word_tokenize(ws.lower().translate(str.maketrans('', '', string.punctuation)))
-    ws2 = [stemmer.stem(x) for x in ws1 if not x in stop_words]
-    return list(set(ws2))
+    ws1 = ws.lower().translate(str.maketrans('', '', string.punctuation))
+    if use_nltk:
+        ws2 = [stemmer.stem(x) for x in word_tokenize(ws1) if not x in stop_words]
+        return list(set(ws2))
+    else:
+        return list(set(ws1.split()))
 
 # add all the words in a line to a dict
 def add_line_to_dict(rid,line,dic,weight):
@@ -130,7 +136,7 @@ def merge_ordered_lists_of_pairs(xss): # merge the scores
 def number_items(xs):
     return list(map(lambda x: str(x[0]) + ". " + x[1], zip(range(1,len(xs)+1),xs)))
 
-def perform_search(query: str) -> [str]:
+def perform_search(query: str,rev_index,ids) -> [str]:
     pure_query = get_keywords(query) # clean query
     recipes_and_scores = list(map(lambda x:rev_index[x], pure_query)) # use the rev index on the query
     merged_r_and_s = merge_ordered_lists_of_pairs(recipes_and_scores) # merge the results for each seperate word
