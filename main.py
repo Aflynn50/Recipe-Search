@@ -1,3 +1,4 @@
+from ast import Mod
 import os
 import string
 import pickle
@@ -6,9 +7,9 @@ from collections import defaultdict
 import threading
 import time
 
-use_nltk = False
-if use_nltk:
+try:
     import nltk
+    use_nltk = True
     nltk.download('stopwords')
     nltk.download('punkt')
     from nltk.stem.snowball import SnowballStemmer
@@ -16,6 +17,11 @@ if use_nltk:
     from nltk.tokenize import word_tokenize
     stemmer = SnowballStemmer("english")
     stop_words = set(stopwords.words('english'))
+except ModuleNotFoundError:
+    print("You do not have the nltk module installed, please install it with 'pip3 install nltk' to release full potatial")
+    print("Running without nltk for now")
+    use_nltk = False
+
 
 recipes_dir = './recipes'
 saved_dict_location = './index/reversed_index.pkl'
@@ -42,7 +48,8 @@ saved_dict_location = './index/reversed_index.pkl'
 #   a lot of pre processing on each line in the recipe, e.g. the nltk stemmer)
 # - If the recipes have changed their file names have changed too (I used a hash of the file names
 #   in the recipe directory to check if the index needs updating)
-#   
+# - When the recipes are updated pushing the updates to the actual search isnt that urgent (the search only
+#   updates the newly written index when a new search is started)
 
 
 
@@ -87,6 +94,8 @@ def assert_sec_title(line,t,recipe):
 def const_empty_list():
     return []
 
+# To generalise this work with any file format rather than just recipes simply use add_line_to_dict
+# with every line in the file with a constant weight
 def build_reverse_index():
     word_index = defaultdict(const_empty_list,[]) # A dictionary with deafult value []
     id_to_recipie = {} # Map the id to the title of the recipe
