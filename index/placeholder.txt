@@ -1,0 +1,1 @@
+Git doesnt like empty directories 
