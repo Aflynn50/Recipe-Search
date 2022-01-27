@@ -61,6 +61,26 @@ intro_w = 5
 ingrident_w = 20
 method_w = 10
 
+# Algorithm to merge the lists of (recipe_id,score) pairs from the different words of the query
+def merge_ordered_lists_of_pairs(xss): # merge the scores
+    if xss == []:
+        return []
+    ys = xss[0] # set first list to result list
+    xsi = 1
+    while xsi < len(xss): # loop through outer list
+        yi = 0
+        xi = 0
+        while xi < len(xss[xsi]) and yi < len(ys): # loop through ys and next xs simutaniously
+            if xss[xsi][xi][0] == ys[yi][0]: # if recipe ids match, add scores together
+                ys[yi][1] += xss[xsi][xi][1]
+                xi += 1
+            elif ys[yi][0] > xss[xsi][xi][0]: # if we havent got recipe in result list, add it
+                ys.insert(yi,xss[xsi][xi])
+                xi += 1
+            yi += 1
+        ys += xss[xsi][xi:] # add the remainder of xs to ys
+        xsi += 1
+    return ys
 
 # convert to lower case, remove punctuation, split, filter out stop words, stem the list of words
 # then remove duplicates
@@ -89,6 +109,14 @@ def assert_sec_title(line,t,recipe):
     if line != t:
         # print("Recipe " + recipe + " is incomplete")
         pass
+
+# Number the results (e.g. 1. Spam Pudding)
+def number_items(xs):
+    return list(map(lambda x: str(x[0]) + ". " + x[1], zip(range(1,len(xs)+1),xs)))
+
+# I cant use the default python hash function as it uses a random seed for each new run
+def hash_files(file_list):
+    return hashlib.sha1((" ".join(file_list)).encode()).hexdigest()
 
 # I can't use a lambda for this becuase lambdas cant be pickled
 def const_empty_list():
@@ -120,31 +148,6 @@ def build_reverse_index():
     
     return (word_index,id_to_recipie)
 
-# Algorithm to merge the lists of (recipe_id,score) pairs from the different words of the query
-def merge_ordered_lists_of_pairs(xss): # merge the scores
-    if xss == []:
-        return []
-    ys = xss[0] # set first list to result list
-    xsi = 1
-    while xsi < len(xss): # loop through outer list
-        yi = 0
-        xi = 0
-        while xi < len(xss[xsi]) and yi < len(ys): # loop through ys and next xs simutaniously
-            if xss[xsi][xi][0] == ys[yi][0]: # if recipe ids match, add scores together
-                ys[yi][1] += xss[xsi][xi][1]
-                xi += 1
-            elif ys[yi][0] > xss[xsi][xi][0]: # if we havent got recipe in result list, add it
-                ys.insert(yi,xss[xsi][xi])
-                xi += 1
-            yi += 1
-        ys += xss[xsi][xi:] # add the remainder of xs to ys
-        xsi += 1
-    return ys
-
-# Number the results (e.g. 1. Spam Pudding)
-def number_items(xs):
-    return list(map(lambda x: str(x[0]) + ". " + x[1], zip(range(1,len(xs)+1),xs)))
-
 def perform_search(query: str,rev_index,ids) -> [str]:
     pure_query = get_keywords(query) # clean query
     recipes_and_scores = list(map(lambda x:rev_index[x], pure_query)) # use the rev index on the query
@@ -152,6 +155,8 @@ def perform_search(query: str,rev_index,ids) -> [str]:
     top_recipe_ids = sorted(merged_r_and_s,key=lambda x:x[1],reverse=True)[:10] # sort the results and take top 10
     top_recipes = number_items(list(map(lambda x: ids[x[0]] + "  Score: " + str(x[1]), top_recipe_ids))) # format the output
     return top_recipes
+
+
 
 # Search thread
 def search_loop(reload_index,check_index,index_lock):
@@ -173,10 +178,6 @@ def search_loop(reload_index,check_index,index_lock):
         print("\n".join(top_recipes))
         print(f"\nsearched in {toc - tic:0.4f} seconds\n\n")
         check_index.set() # tell the index_loop to check the index, just in case its changed recently
-
-# I cant use the default python hash function as it uses a random seed for each new run
-def hash_files(file_list):
-    return hashlib.sha1((" ".join(file_list)).encode()).hexdigest()
 
 # Index builder thread
 def index_loop(reload_index,check_index,index_lock):
